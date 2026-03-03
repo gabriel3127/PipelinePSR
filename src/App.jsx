@@ -66,7 +66,7 @@ function MainApp({ user, profile }) {
   const [notifications, setNotifications]   = useState([]);
   const [allUsers, setAllUsers]             = useState([]);
   const [locationTags, setLocationTags]     = useState([]);
-  const { toasts, dismiss } = useToast();
+  const { toasts, show: showToast, dismiss } = useToast();
 
   const isAdmin = profile?.role === "admin";
   const can = (key) => isAdmin || !!(profile?.permissions?.[key]);
