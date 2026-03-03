@@ -1,4 +1,9 @@
-export const COMPANIES = ["PSR", "GALPAO"];
+export const PIPELINES = [
+  { id: "df-com-venda",    label: "DF — Com Venda",          color: "#6366f1", icon: "🟦" },
+  { id: "df-sem-venda",    label: "DF — Sem Venda",          color: "#8b5cf6", icon: "🟪" },
+  { id: "inter-com-venda", label: "Interestadual — Com Venda", color: "#f59e0b", icon: "🟧" },
+  { id: "inter-sem-venda", label: "Interestadual — Sem Venda", color: "#ef4444", icon: "🟥" },
+];
 
 export const ALL_PERMISSIONS = [
   { key: "view_pipeline",  label: "Ver pipeline" },

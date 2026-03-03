@@ -4,15 +4,81 @@ import { supabase } from "../supabaseClient";
 import { useApp } from "../context/AppContext";
 import { Modal } from "../components/shared/Modal";
 import { FormField } from "../components/shared/FormField";
-import { COLORS, fieldStyle } from "../constants";
+import { COLORS, PIPELINES, fieldStyle } from "../constants";
 
-// ── Card pequeno no board ─────────────────────────────────────
+// ── Painel de filtros ─────────────────────────────────────────
+function FilterBar({ filters, setFilters, allUsers, locationTags, columns }) {
+  const [open, setOpen] = useState(false);
+  const activeCount = Object.values(filters).filter(v => v !== "" && v !== null).length;
+
+  const clear = () => setFilters({ user:"", location:"", column:"", valueMin:"", valueMax:"", daysMin:"", daysMax:"" });
+
+  return (
+    <div style={{position:"relative"}}>
+      <button onClick={()=>setOpen(o=>!o)} style={{background:activeCount>0?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.04)",color:activeCount>0?"#818cf8":"#64748b",border:`1px solid ${activeCount>0?"rgba(99,102,241,0.4)":"#334155"}`,borderRadius:8,padding:"6px 13px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}>
+        🔽 Filtros {activeCount>0 && <span style={{background:"#6366f1",color:"#fff",borderRadius:"50%",width:16,height:16,fontSize:10,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{activeCount}</span>}
+      </button>
+
+      {open && (
+        <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#1e293b",border:"1px solid #334155",borderRadius:14,padding:20,zIndex:200,width:340,boxShadow:"0 16px 48px rgba(0,0,0,0.4)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <span style={{fontSize:13,fontWeight:700,color:"#e2e8f0"}}>Filtros</span>
+            {activeCount>0 && <span onClick={clear} style={{fontSize:11,color:"#6366f1",cursor:"pointer"}}>Limpar tudo</span>}
+          </div>
+
+          <FormField label="Responsável">
+            <select value={filters.user} onChange={e=>setFilters(p=>({...p,user:e.target.value}))} style={{...fieldStyle,cursor:"pointer",fontSize:12}}>
+              <option value="">Todos</option>
+              {allUsers.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </FormField>
+
+          {locationTags.length>0 && (
+            <FormField label="📍 Localização">
+              <select value={filters.location} onChange={e=>setFilters(p=>({...p,location:e.target.value}))} style={{...fieldStyle,cursor:"pointer",fontSize:12}}>
+                <option value="">Todas</option>
+                {locationTags.map(lt=><option key={lt.id} value={lt.id}>{lt.name}</option>)}
+              </select>
+            </FormField>
+          )}
+
+          <FormField label="Etapa (coluna)">
+            <select value={filters.column} onChange={e=>setFilters(p=>({...p,column:e.target.value}))} style={{...fieldStyle,cursor:"pointer",fontSize:12}}>
+              <option value="">Todas</option>
+              {columns.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </FormField>
+
+          <FormField label="Valor (R$)">
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <input value={filters.valueMin} onChange={e=>setFilters(p=>({...p,valueMin:e.target.value}))} placeholder="Mín" type="number" style={{...fieldStyle,fontSize:12}} />
+              <span style={{color:"#475569",fontSize:12,flexShrink:0}}>até</span>
+              <input value={filters.valueMax} onChange={e=>setFilters(p=>({...p,valueMax:e.target.value}))} placeholder="Máx" type="number" style={{...fieldStyle,fontSize:12}} />
+            </div>
+          </FormField>
+
+          <FormField label="Dias sem comprar">
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <input value={filters.daysMin} onChange={e=>setFilters(p=>({...p,daysMin:e.target.value}))} placeholder="Mín" type="number" style={{...fieldStyle,fontSize:12}} />
+              <span style={{color:"#475569",fontSize:12,flexShrink:0}}>até</span>
+              <input value={filters.daysMax} onChange={e=>setFilters(p=>({...p,daysMax:e.target.value}))} placeholder="Máx" type="number" style={{...fieldStyle,fontSize:12}} />
+            </div>
+          </FormField>
+
+          <button onClick={()=>setOpen(false)} style={{width:"100%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:8,padding:"9px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginTop:4}}>Aplicar</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Card no board ─────────────────────────────────────────────
 function CardItem({ card, canDrag, onDragStart, onDragEnd, onClick, allUsers, locationTags }) {
   const [hovered, setHovered] = useState(false);
   const daysSince = card.last_purchase_date ? differenceInDays(new Date(), parseISO(card.last_purchase_date)) : null;
   const isOld = daysSince !== null && daysSince >= 30;
-  const assigneeNames = (card.assignees||[]).map(id => allUsers.find(u=>u.id===id)?.name?.split(" ")[0]).filter(Boolean);
-  const locNames      = (card.location_tags||[]).map(id => locationTags.find(l=>l.id===id)?.name).filter(Boolean);
+  const assigneeNames = (card.assignees||[]).map(id=>allUsers.find(u=>u.id===id)?.name?.split(" ")[0]).filter(Boolean);
+  const locNames      = (card.location_tags||[]).map(id=>locationTags.find(l=>l.id===id)?.name).filter(Boolean);
 
   return (
     <div draggable={canDrag} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={onClick}
@@ -22,7 +88,7 @@ function CardItem({ card, canDrag, onDragStart, onDragEnd, onClick, allUsers, lo
         <div style={{fontWeight:600,fontSize:12,color:"#f1f5f9",lineHeight:1.3,flex:1}}>{card.client_name}</div>
         {isOld && <span title={`${daysSince}d sem comprar`} style={{fontSize:11,marginLeft:4}}>🔴</span>}
       </div>
-      {card.company_name && <div style={{color:"#64748b",fontSize:10,marginBottom:5}}>{card.company_name}</div>}
+      {card.company_name && <div style={{color:"#64748b",fontSize:10,marginBottom:4}}>{card.company_name}</div>}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:(locNames.length||assigneeNames.length)?5:0}}>
         {Number(card.value)>0 && <span style={{color:"#10b981",fontSize:11,fontWeight:600}}>R$ {Number(card.value).toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>}
         {daysSince!==null && <span style={{color:isOld?"#ef4444":"#64748b",fontSize:10}}>{daysSince}d atrás</span>}
@@ -43,7 +109,7 @@ function CardItem({ card, canDrag, onDragStart, onDragEnd, onClick, allUsers, lo
 
 // ── Modal adicionar card ──────────────────────────────────────
 function AddCardModal({ columnId, onClose, onAdd }) {
-  const { columns, showToast, activeCompany, allUsers, locationTags, profile } = useApp();
+  const { columns, showToast, activePipeline, allUsers, locationTags, profile } = useApp();
   const col = columns.find(c=>c.id===columnId);
   const [form, setForm] = useState({ client_name:"", company_name:"", phone:"", email:"", value:"", last_purchase_date:"", notes:"", assignees:[profile?.id||""], location_tags:[] });
   const upd = key => e => setForm(p=>({...p,[key]:e.target.value}));
@@ -52,7 +118,7 @@ function AddCardModal({ columnId, onClose, onAdd }) {
   const save = async () => {
     if (!form.client_name.trim()) return showToast("Nome obrigatório","error");
     const { data, error } = await supabase.from("pipeline_cards")
-      .insert({...form, column_id:columnId, value:parseFloat(form.value)||0, position:0, company:activeCompany})
+      .insert({...form, column_id:columnId, value:parseFloat(form.value)||0, position:0, pipeline_id:activePipeline})
       .select().single();
     if (error) return showToast(error.message,"error");
     onAdd(data); showToast("Cliente adicionado!");
@@ -92,7 +158,7 @@ function AddCardModal({ columnId, onClose, onAdd }) {
   );
 }
 
-// ── Modal detalhe/edição do card ──────────────────────────────
+// ── Modal detalhe card ────────────────────────────────────────
 function CardDetailModal({ card, onClose, onUpdate, onDelete }) {
   const { columns, showToast, can, allUsers, locationTags } = useApp();
   const [form, setForm] = useState({...card, value:String(card.value||"")});
@@ -158,35 +224,47 @@ function CardDetailModal({ card, onClose, onUpdate, onDelete }) {
   );
 }
 
-// ── PipelinePage principal ────────────────────────────────────
+// ── PipelinePage ──────────────────────────────────────────────
 export function PipelinePage() {
-  const { columns, setColumns, cards, setCards, showToast, can, activeCompany, allUsers, locationTags } = useApp();
+  const { columns, setColumns, cards, setCards, showToast, can, activePipeline, allUsers, locationTags } = useApp();
+  const pipelineInfo = PIPELINES.find(p=>p.id===activePipeline);
+
   const [dragging, setDragging]       = useState(null);
   const [dragOver, setDragOver]       = useState(null);
   const [search, setSearch]           = useState("");
-  const [filterUser, setFilterUser]   = useState("");
-  const [filterLoc, setFilterLoc]     = useState("");
   const [showAddCol, setShowAddCol]   = useState(false);
   const [newColName, setNewColName]   = useState("");
   const [newColColor, setNewColColor] = useState("#6366f1");
   const [editingCol, setEditingCol]   = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
   const [addCardCol, setAddCardCol]   = useState(null);
+  const [filters, setFilters] = useState({ user:"", location:"", column:"", valueMin:"", valueMax:"", daysMin:"", daysMax:"" });
 
-  const filtered = cards.filter(c => {
+  const applyFilters = (c) => {
     if (search && !c.client_name?.toLowerCase().includes(search.toLowerCase()) && !c.company_name?.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filterUser && !(c.assignees||[]).includes(filterUser)) return false;
-    if (filterLoc  && !(c.location_tags||[]).includes(filterLoc))  return false;
+    if (filters.user && !(c.assignees||[]).includes(filters.user)) return false;
+    if (filters.location && !(c.location_tags||[]).includes(filters.location)) return false;
+    if (filters.column && c.column_id !== filters.column) return false;
+    if (filters.valueMin && Number(c.value) < Number(filters.valueMin)) return false;
+    if (filters.valueMax && Number(c.value) > Number(filters.valueMax)) return false;
+    if (filters.daysMin || filters.daysMax) {
+      if (!c.last_purchase_date) return false;
+      const days = differenceInDays(new Date(), parseISO(c.last_purchase_date));
+      if (filters.daysMin && days < Number(filters.daysMin)) return false;
+      if (filters.daysMax && days > Number(filters.daysMax)) return false;
+    }
     return true;
-  });
+  };
 
+  const filtered    = cards.filter(applyFilters);
   const getColCards = colId => filtered.filter(c=>c.column_id===colId).sort((a,b)=>(a.position||0)-(b.position||0));
   const getColTotal = colId => cards.filter(c=>c.column_id===colId).reduce((s,c)=>s+(Number(c.value)||0),0);
   const totalAll    = cards.reduce((s,c)=>s+(Number(c.value)||0),0);
+  const activeCount = Object.values(filters).filter(v=>v!=="").length;
 
   const onDrop = async (e, colId) => {
     e.preventDefault();
-    if (!dragging || dragging.column_id===colId || !can("move_cards")) { setDragOver(null); return; }
+    if (!dragging||dragging.column_id===colId||!can("move_cards")) { setDragOver(null); return; }
     const updated = {...dragging, column_id:colId, updated_at:new Date().toISOString()};
     setCards(prev=>prev.map(c=>c.id===dragging.id?updated:c));
     await supabase.from("pipeline_cards").update({column_id:colId, updated_at:updated.updated_at}).eq("id",dragging.id);
@@ -196,7 +274,7 @@ export function PipelinePage() {
 
   const addColumn = async () => {
     if (!newColName.trim()) return;
-    const { data, error } = await supabase.from("pipeline_columns").insert({name:newColName.trim(),color:newColColor,position:columns.length,company:activeCompany}).select().single();
+    const { data, error } = await supabase.from("pipeline_columns").insert({name:newColName.trim(),color:newColColor,position:columns.length,pipeline_id:activePipeline}).select().single();
     if (error) return showToast(error.message,"error");
     setColumns(prev=>[...prev,data]); setNewColName(""); setShowAddCol(false); showToast("Coluna adicionada!");
   };
@@ -221,22 +299,19 @@ export function PipelinePage() {
     <div>
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18,flexWrap:"wrap"}}>
-        <div>
-          <h1 style={{margin:0,fontSize:21,fontWeight:700,color:"#f1f5f9"}}>Pipeline — {activeCompany}</h1>
-          <p style={{margin:"3px 0 0",color:"#64748b",fontSize:12}}>{cards.length} clientes · R$ {totalAll.toLocaleString("pt-BR",{minimumFractionDigits:2})}</p>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:12,height:12,borderRadius:"50%",background:pipelineInfo?.color}} />
+          <div>
+            <h1 style={{margin:0,fontSize:20,fontWeight:700,color:"#f1f5f9"}}>{pipelineInfo?.label}</h1>
+            <p style={{margin:"2px 0 0",color:"#64748b",fontSize:12}}>
+              {cards.length} clientes · R$ {totalAll.toLocaleString("pt-BR",{minimumFractionDigits:2})}
+              {activeCount>0 && <span style={{color:"#818cf8"}}> · {filtered.length} filtrados</span>}
+            </p>
+          </div>
         </div>
-        <div style={{marginLeft:"auto",display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
+        <div style={{marginLeft:"auto",display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Buscar..." style={{background:"#1e293b",border:"1px solid #334155",borderRadius:7,padding:"6px 12px",color:"#f1f5f9",fontSize:12,outline:"none",fontFamily:"inherit",width:160}} />
-          <select value={filterUser} onChange={e=>setFilterUser(e.target.value)} style={{...fieldStyle,width:"auto",padding:"6px 10px",fontSize:12,cursor:"pointer"}}>
-            <option value="">👤 Todos</option>
-            {allUsers.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-          {locationTags.length>0 && (
-            <select value={filterLoc} onChange={e=>setFilterLoc(e.target.value)} style={{...fieldStyle,width:"auto",padding:"6px 10px",fontSize:12,cursor:"pointer"}}>
-              <option value="">📍 Todas regiões</option>
-              {locationTags.map(lt=><option key={lt.id} value={lt.id}>{lt.name}</option>)}
-            </select>
-          )}
+          <FilterBar filters={filters} setFilters={setFilters} allUsers={allUsers} locationTags={locationTags} columns={columns} />
           {can("manage_columns") && (
             <button onClick={()=>setShowAddCol(true)} style={{background:"rgba(99,102,241,0.15)",color:"#818cf8",border:"1px solid rgba(99,102,241,0.3)",borderRadius:7,padding:"6px 13px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Coluna</button>
           )}
@@ -244,8 +319,8 @@ export function PipelinePage() {
       </div>
 
       {/* Board */}
-      <div style={{display:"flex",gap:13,overflowX:"auto",paddingBottom:16,alignItems:"flex-start",minHeight:"calc(100vh - 210px)"}}>
-        {columns.map(col => (
+      <div style={{display:"flex",gap:13,overflowX:"auto",paddingBottom:16,alignItems:"flex-start",minHeight:"calc(100vh - 200px)"}}>
+        {columns.map(col=>(
           <div key={col.id}
             onDragOver={e=>{e.preventDefault();setDragOver(col.id)}}
             onDrop={e=>onDrop(e,col.id)}
@@ -283,7 +358,7 @@ export function PipelinePage() {
         {columns.length===0 && (
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"#475569",padding:60,textAlign:"center"}}>
             <div style={{fontSize:40,marginBottom:12}}>🗂️</div>
-            <div style={{fontSize:15,fontWeight:600,marginBottom:6,color:"#64748b"}}>Nenhuma coluna criada</div>
+            <div style={{fontSize:15,fontWeight:600,marginBottom:6,color:"#64748b"}}>Nenhuma coluna neste pipeline</div>
             {can("manage_columns") && <button onClick={()=>setShowAddCol(true)} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:10,padding:"9px 22px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginTop:12}}>+ Criar primeira coluna</button>}
           </div>
         )}

@@ -3,7 +3,7 @@ import { supabase } from "../supabaseClient";
 import { useApp } from "../context/AppContext";
 import { Modal } from "../components/shared/Modal";
 import { FormField } from "../components/shared/FormField";
-import { ALL_PERMISSIONS, COMPANIES, fieldStyle } from "../constants";
+import { ALL_PERMISSIONS, PIPELINES, fieldStyle } from "../constants";
 
 function PermGrid({ perms, onChange }) {
   return (
@@ -24,7 +24,7 @@ export function AdminPage() {
   const [users, setUsers]       = useState([]);
   const [editingUser, setEditingUser] = useState(null);
   const [newLocTag, setNewLocTag]     = useState("");
-  const [form, setForm] = useState({ name:"", email:"", password:"", role:"user", companies:[], permissions:{} });
+  const [form, setForm] = useState({ name:"", email:"", password:"", role:"user", pipelines:[], permissions:{} });
   const upd = key => e => setForm(p=>({...p,[key]:e.target.value}));
 
   const toggleCompany = (arr, co) => arr.includes(co) ? arr.filter(x=>x!==co) : [...arr,co];
@@ -51,9 +51,11 @@ export function AdminPage() {
   };
 
   const saveUser = async () => {
-    await supabase.from("profiles").update({ name:editingUser.name, role:editingUser.role, companies:editingUser.companies||[], permissions:editingUser.permissions||{} }).eq("id",editingUser.id);
-    setUsers(prev=>prev.map(u=>u.id===editingUser.id?{...u,...editingUser}:u));
-    setEditingUser(null); showToast("Usuário atualizado!");
+    await supabase.from("profiles").update({
+    role:form.role, name:form.name,
+    pipelines:form.pipelines,        // ← era companies
+    permissions:form.permissions
+    }).eq("id", authData.user.id);
   };
 
   const addLocTag = async () => {
@@ -95,13 +97,17 @@ export function AdminPage() {
               </select>
             </FormField>
           </div>
-          <FormField label="Acesso às empresas">
-            <div style={{display:"flex",gap:8}}>
-              {COMPANIES.map(co=>(
-                <button key={co} type="button" onClick={()=>setForm(p=>({...p,companies:toggleCompany(p.companies,co)}))} style={{background:form.companies.includes(co)?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.04)",color:form.companies.includes(co)?"#818cf8":"#64748b",border:`1px solid ${form.companies.includes(co)?"#6366f1":"#334155"}`,borderRadius:8,padding:"6px 18px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{co}</button>
-              ))}
+            <FormField label="Acesso aos pipelines">
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {PIPELINES.map(p=>(
+                <label key={p.id} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"6px 10px",background:form.pipelines.includes(p.id)?"rgba(99,102,241,0.1)":"rgba(255,255,255,0.02)",borderRadius:6,border:`1px solid ${form.pipelines.includes(p.id)?"rgba(99,102,241,0.3)":"#334155"}`}}>
+                    <input type="checkbox" checked={form.pipelines.includes(p.id)} onChange={()=>setForm(prev=>({...prev,pipelines:prev.pipelines.includes(p.id)?prev.pipelines.filter(x=>x!==p.id):[...prev.pipelines,p.id]}))} style={{accentColor:"#6366f1"}} />
+                    <div style={{width:8,height:8,borderRadius:"50%",background:p.color}} />
+                    <span style={{fontSize:12,color:form.pipelines.includes(p.id)?"#c7d2fe":"#64748b"}}>{p.label}</span>
+                </label>
+                ))}
             </div>
-          </FormField>
+            </FormField>
           {form.role==="user" && (
             <FormField label="Permissões">
               <PermGrid perms={form.permissions} onChange={key=>setForm(p=>({...p,permissions:togglePerm(p.permissions,key)}))} />
