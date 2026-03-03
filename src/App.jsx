@@ -131,7 +131,7 @@ function MainApp({ user, profile }) {
 export default function App() {
   const [session, setSession] = useState(undefined);
   const [profile, setProfile] = useState(null);
-  const { toasts, show: showToast, dismiss } = useToast();
+  const { toasts, dismiss } = useToast();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data:{ session } }) => {
