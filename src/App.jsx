@@ -9,7 +9,6 @@ import { ImportPage } from "./pages/ImportPage";
 import { AlertsPage } from "./pages/AlertsPage";
 import { AdminPage } from "./pages/AdminPage";
 import { GLOBAL_STYLES, COMPANIES } from "./constants";
-import { differenceInDays, parseISO } from "date-fns";
 
 function useToast() {
   const [toasts, setToasts] = useState([]);
@@ -67,7 +66,7 @@ function MainApp({ user, profile }) {
   const [notifications, setNotifications]   = useState([]);
   const [allUsers, setAllUsers]             = useState([]);
   const [locationTags, setLocationTags]     = useState([]);
-  const { toasts, show: showToast, dismiss } = useToast();
+  const { toasts, dismiss } = useToast();
 
   const isAdmin = profile?.role === "admin";
   const can = (key) => isAdmin || !!(profile?.permissions?.[key]);
@@ -76,6 +75,7 @@ function MainApp({ user, profile }) {
   useEffect(() => {
     if (accessibleCompanies.length > 0 && !activeCompany)
       setActiveCompany(accessibleCompanies[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   const loadData = useCallback(async () => {

@@ -21,6 +21,7 @@ export function AppProvider({ user, profile, onSignOut, children }) {
   useEffect(() => {
     if (accessibleCompanies.length > 0 && !activeCompany)
       setActiveCompany(accessibleCompanies[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   const loadData = useCallback(async () => {

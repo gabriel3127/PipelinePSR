@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/reset-password.html", "destination": "/reset-password.html" },
+    { "source": "/((?!reset-password.html).*)", "destination": "/index.html" }
+  ]
+}
