@@ -567,6 +567,54 @@ function CardDetailModal({ card, onClose, onUpdate, onDelete, onMoved }) {
   );
 }
 
+function DeleteColumnModal({ col, count, columns, onClose, onDelete }) {
+  const [moveToColId, setMoveToColId] = useState("delete");
+  const otherCols = columns.filter(c => c.id !== col.id);
+
+  return (
+    <Modal title="Excluir coluna" onClose={onClose} width={440}>
+      <div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:9,padding:"12px 16px",marginBottom:18}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#fca5a5",marginBottom:4}}>
+          ⚠️ A coluna <strong>"{col.name}"</strong> tem {count} cliente(s)
+        </div>
+        <div style={{fontSize:12,color:"#94a3b8"}}>O que deseja fazer com eles?</div>
+      </div>
+
+      <FormField label="Ação para os clientes">
+        <select value={moveToColId} onChange={e=>setMoveToColId(e.target.value)}
+          style={{...fieldStyle,cursor:"pointer"}}>
+          <option value="delete">🗑️ Excluir todos os clientes</option>
+          {otherCols.map(c=>(
+            <option key={c.id} value={c.id}>↪️ Mover para "{c.name}"</option>
+          ))}
+        </select>
+      </FormField>
+
+      {moveToColId === "delete" && (
+        <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:7,padding:"9px 13px",marginBottom:14,fontSize:12,color:"#fca5a5"}}>
+          ⚠️ Esta ação é irreversível. Os {count} cliente(s) serão permanentemente excluídos.
+        </div>
+      )}
+      {moveToColId !== "delete" && (
+        <div style={{background:"rgba(16,185,129,0.06)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:7,padding:"9px 13px",marginBottom:14,fontSize:12,color:"#6ee7b7"}}>
+          ✅ Os {count} cliente(s) serão movidos para "{otherCols.find(c=>c.id===moveToColId)?.name}" antes da exclusão.
+        </div>
+      )}
+
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={onClose}
+          style={{flex:1,background:"rgba(255,255,255,0.04)",color:"#94a3b8",border:"1px solid #334155",borderRadius:10,padding:12,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+          Cancelar
+        </button>
+        <button onClick={()=>onDelete(col.id, moveToColId==="delete"?null:moveToColId)}
+          style={{flex:1,background:moveToColId==="delete"?"rgba(239,68,68,0.15)":"linear-gradient(135deg,#6366f1,#8b5cf6)",color:moveToColId==="delete"?"#ef4444":"#fff",border:moveToColId==="delete"?"1px solid rgba(239,68,68,0.3)":"none",borderRadius:10,padding:12,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+          {moveToColId==="delete"?`🗑️ Excluir coluna e clientes`:`↪️ Mover e excluir coluna`}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 export function PipelinePage() {
   const { columns, setColumns, cards, setCards, showToast, can, activePipeline, allUsers, locationTags, appSettings } = useApp();
   const pipelineInfo = PIPELINES.find(p=>p.id===activePipeline);
@@ -583,6 +631,7 @@ export function PipelinePage() {
   const [editingCol, setEditingCol]     = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
   const [addCardCol, setAddCardCol]     = useState(null);
+  const [deleteColModal, setDeleteColModal] = useState(null);
   const [filters, setFilters] = useState({ user:"", locationText:"", tag:"", interest:"", valueMin:"", valueMax:"", daysMin:"", daysMax:"" });
 
   const applyFilters = (c) => {
@@ -648,13 +697,33 @@ export function PipelinePage() {
     setShowAddCol(false); showToast("Coluna adicionada!");
   };
 
-  const deleteColumn = async colId => {
-    const count = cards.filter(c=>c.column_id===colId).length;
-    if (count>0 && !window.confirm(`Esta coluna tem ${count} card(s). Excluir mesmo assim?`)) return;
-    await supabase.from("pipeline_columns").delete().eq("id",colId);
-    setColumns(prev=>prev.filter(c=>c.id!==colId));
-    setCards(prev=>prev.filter(c=>c.column_id!==colId));
-    showToast("Coluna removida","warning");
+  const deleteColumn = (colId) => {
+    const col = columns.find(c => c.id === colId);
+    const count = cards.filter(c => c.column_id === colId).length;
+    if (count > 0) {
+      setDeleteColModal({ col, count });
+    } else {
+      doDeleteColumn(colId, null);
+    }
+  };
+
+  const doDeleteColumn = async (colId, moveToColId) => {
+    if (moveToColId) {
+      // Move todos os cards para outra coluna antes de excluir
+      const now = new Date().toISOString();
+      await supabase.from("pipeline_cards")
+        .update({ column_id: moveToColId, updated_at: now })
+        .eq("column_id", colId);
+      setCards(prev => prev.map(c => c.column_id === colId ? { ...c, column_id: moveToColId, updated_at: now } : c));
+    } else {
+      // Exclui os cards junto com a coluna
+      await supabase.from("pipeline_cards").delete().eq("column_id", colId);
+      setCards(prev => prev.filter(c => c.column_id !== colId));
+    }
+    await supabase.from("pipeline_columns").delete().eq("id", colId);
+    setColumns(prev => prev.filter(c => c.id !== colId));
+    setDeleteColModal(null);
+    showToast("Coluna removida", "warning");
   };
 
   const saveCol = async () => {
@@ -785,6 +854,15 @@ export function PipelinePage() {
 
       {selectedCard && <CardDetailModal card={selectedCard} onClose={()=>setSelectedCard(null)} onUpdate={u=>{setCards(prev=>prev.map(c=>c.id===u.id?u:c));setSelectedCard(null);}} onDelete={id=>{setCards(prev=>prev.filter(c=>c.id!==id));setSelectedCard(null);}} onMoved={id=>{setCards(prev=>prev.filter(c=>c.id!==id));setSelectedCard(null);}} />}
       {addCardCol && <AddCardModal columnId={addCardCol} onClose={()=>setAddCardCol(null)} onAdd={card=>{setCards(prev=>[...prev,card]);setAddCardCol(null);}} />}
+      {deleteColModal && (
+        <DeleteColumnModal
+          col={deleteColModal.col}
+          count={deleteColModal.count}
+          columns={columns}
+          onClose={()=>setDeleteColModal(null)}
+          onDelete={doDeleteColumn}
+        />
+      )}
     </div>
   );
 }
