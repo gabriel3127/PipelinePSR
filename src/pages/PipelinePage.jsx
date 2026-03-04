@@ -199,9 +199,77 @@ function AddCardModal({ columnId, onClose, onAdd }) {
   );
 }
 
-function CardDetailModal({ card, onClose, onUpdate, onDelete }) {
-  const { columns, showToast, can, allUsers, locationTags } = useApp();
+
+// ── Modal mover para outro pipeline ──────────────────────────
+function MovePipelineModal({ card, onClose, onMoved }) {
+  const { showToast } = useApp();
+  const [targetPipelineId, setTargetPipelineId] = useState("");
+  const [targetCols, setTargetCols] = useState([]);
+  const [targetColId, setTargetColId] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const otherPipelines = PIPELINES.filter(p => p.id !== card.pipeline_id);
+
+  const loadCols = async (pid) => {
+    setTargetPipelineId(pid);
+    setTargetColId("");
+    if (!pid) { setTargetCols([]); return; }
+    const { data } = await supabase.from("pipeline_columns").select("id,name").eq("pipeline_id", pid).order("position");
+    setTargetCols(data||[]);
+    if (data?.length) setTargetColId(data[0].id);
+  };
+
+  const move = async () => {
+    if (!targetPipelineId || !targetColId) return showToast("Selecione pipeline e etapa","error");
+    setLoading(true);
+    const { error } = await supabase.from("pipeline_cards").update({
+      pipeline_id: targetPipelineId,
+      column_id: targetColId,
+      updated_at: new Date().toISOString(),
+    }).eq("id", card.id);
+    if (error) { showToast(error.message,"error"); setLoading(false); return; }
+    const destLabel = PIPELINES.find(p=>p.id===targetPipelineId)?.label || targetPipelineId;
+    showToast(`${card.client_name} movido para ${destLabel}`);
+    onMoved(card.id);
+  };
+
+  const currentPipeline = PIPELINES.find(p=>p.id===card.pipeline_id);
+
+  return (
+    <Modal title="Mover para outro pipeline" onClose={onClose} width={420}>
+      <div style={{background:"rgba(99,102,241,0.08)",border:"1px solid rgba(99,102,241,0.2)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#94a3b8"}}>
+        Pipeline atual: <strong style={{color:"#c7d2fe"}}>{currentPipeline?.label||card.pipeline_id}</strong>
+      </div>
+      <FormField label="Pipeline de destino">
+        <select value={targetPipelineId} onChange={e=>loadCols(e.target.value)} style={{...fieldStyle,cursor:"pointer"}}>
+          <option value="">Selecione...</option>
+          {otherPipelines.map(p=>(
+            <option key={p.id} value={p.id}>{p.label}</option>
+          ))}
+        </select>
+      </FormField>
+      {targetCols.length>0 && (
+        <FormField label="Etapa de destino">
+          <select value={targetColId} onChange={e=>setTargetColId(e.target.value)} style={{...fieldStyle,cursor:"pointer"}}>
+            {targetCols.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </FormField>
+      )}
+      {targetPipelineId && targetCols.length===0 && (
+        <div style={{color:"#ef4444",fontSize:12,marginBottom:12}}>Este pipeline não tem etapas configuradas.</div>
+      )}
+      <button onClick={move} disabled={loading||!targetColId}
+        style={{width:"100%",background:"linear-gradient(135deg,#f59e0b,#d97706)",color:"#fff",border:"none",borderRadius:10,padding:12,fontSize:14,fontWeight:600,cursor:loading||!targetColId?"not-allowed":"pointer",fontFamily:"inherit",opacity:!targetColId?0.5:1}}>
+        {loading?"Movendo...":"↪️ Mover cliente"}
+      </button>
+    </Modal>
+  );
+}
+
+function CardDetailModal({ card, onClose, onUpdate, onDelete, onMoved }) {
+  const { showToast, can, allUsers, locationTags } = useApp();
   const [tab, setTab] = useState("dados");
+  const [showMovePipeline, setShowMovePipeline] = useState(false);
   const [form, setForm] = useState({
     ...card,
     value: String(card.value||""),
@@ -303,9 +371,23 @@ function CardDetailModal({ card, onClose, onUpdate, onDelete }) {
   );
 
   const interestColors = { frio:"#3b82f6", morno:"#f59e0b", quente:"#ef4444" };
+  const daysSinceModal = card.last_purchase_date ? differenceInDays(new Date(), parseISO(card.last_purchase_date)) : null;
+  const isLongNoSale = daysSinceModal !== null && daysSinceModal >= 60;
 
   return (
+    <>
     <Modal title="Detalhes do cliente" onClose={onClose} width={580}>
+      {isLongNoSale && (
+        <div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:"9px 14px",marginBottom:14,fontSize:12,color:"#fca5a5",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+          <span>⚠️ Sem compra há <strong>{daysSinceModal} dias</strong>. Considere mover para o pipeline "Sem Venda".</span>
+          {canEdit && (
+            <button onClick={()=>setShowMovePipeline(true)}
+              style={{background:"rgba(239,68,68,0.15)",color:"#ef4444",border:"1px solid rgba(239,68,68,0.3)",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+              Mover agora
+            </button>
+          )}
+        </div>
+      )}
       <div style={{display:"flex",gap:4,marginBottom:18,borderBottom:"1px solid #334155",paddingBottom:10}}>
         {tabBtn("dados","📋 Cadastro")}
         {tabBtn("relacionamento","🤝 Relacionamento")}
@@ -463,11 +545,25 @@ function CardDetailModal({ card, onClose, onUpdate, onDelete }) {
         </div>
       )}
 
-      <div style={{display:"flex",gap:10,marginTop:16}}>
+      <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
         {canEdit && <button onClick={save} disabled={saving} style={{flex:1,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:10,padding:12,fontSize:14,fontWeight:600,cursor:saving?"wait":"pointer",fontFamily:"inherit"}}>{saving?"Salvando...":"Salvar alterações"}</button>}
+        {canEdit && (
+          <button onClick={()=>setShowMovePipeline(true)}
+            style={{background:"rgba(245,158,11,0.1)",color:"#f59e0b",border:"1px solid rgba(245,158,11,0.25)",borderRadius:10,padding:"12px 14px",fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+            ↪️ Mover pipeline
+          </button>
+        )}
         {can("delete_clients") && <button onClick={del} style={{background:"rgba(239,68,68,0.1)",color:"#ef4444",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:"12px 16px",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>🗑️</button>}
       </div>
     </Modal>
+    {showMovePipeline && (
+      <MovePipelineModal
+        card={card}
+        onClose={()=>setShowMovePipeline(false)}
+        onMoved={(id)=>{ onMoved && onMoved(id); onClose(); }}
+      />
+    )}
+    </>
   );
 }
 
@@ -687,7 +783,7 @@ export function PipelinePage() {
         <button onClick={saveCol} style={{width:"100%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:10,padding:12,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Salvar</button>
       </Modal>}
 
-      {selectedCard && <CardDetailModal card={selectedCard} onClose={()=>setSelectedCard(null)} onUpdate={u=>{setCards(prev=>prev.map(c=>c.id===u.id?u:c));setSelectedCard(null);}} onDelete={id=>{setCards(prev=>prev.filter(c=>c.id!==id));setSelectedCard(null);}} />}
+      {selectedCard && <CardDetailModal card={selectedCard} onClose={()=>setSelectedCard(null)} onUpdate={u=>{setCards(prev=>prev.map(c=>c.id===u.id?u:c));setSelectedCard(null);}} onDelete={id=>{setCards(prev=>prev.filter(c=>c.id!==id));setSelectedCard(null);}} onMoved={id=>{setCards(prev=>prev.filter(c=>c.id!==id));setSelectedCard(null);}} />}
       {addCardCol && <AddCardModal columnId={addCardCol} onClose={()=>setAddCardCol(null)} onAdd={card=>{setCards(prev=>[...prev,card]);setAddCardCol(null);}} />}
     </div>
   );

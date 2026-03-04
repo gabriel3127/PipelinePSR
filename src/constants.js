@@ -1,9 +1,32 @@
 export const PIPELINES = [
-  { id: "df-com-venda",    label: "DF — Com Venda",          color: "#6366f1", icon: "🟦" },
-  { id: "df-sem-venda",    label: "DF — Sem Venda",          color: "#8b5cf6", icon: "🟪" },
-  { id: "inter-com-venda", label: "Interestadual — Com Venda", color: "#f59e0b", icon: "🟧" },
-  { id: "inter-sem-venda", label: "Interestadual — Sem Venda", color: "#ef4444", icon: "🟥" },
+  { id: "df-com-venda",    label: "DF — Com Venda",             color: "#6366f1", icon: "🟦", group: "df" },
+  { id: "df-sem-venda",    label: "DF — Sem Venda",             color: "#8b5cf6", icon: "🟪", group: "df" },
+  { id: "inter-com-venda", label: "Interestadual — Com Venda",  color: "#f59e0b", icon: "🟧", group: "inter" },
+  { id: "inter-sem-venda", label: "Interestadual — Sem Venda",  color: "#ef4444", icon: "🟥", group: "inter" },
+  { id: "prospeccao",      label: "Prospecção",                 color: "#10b981", icon: "🟩", group: null },
 ];
+
+// Pipelines de importação (o usuário escolhe apenas o "grupo", não o com/sem venda)
+export const IMPORT_GROUPS = [
+  { id: "df",    label: "DF",            comVenda: "df-com-venda",    semVenda: "df-sem-venda"    },
+  { id: "inter", label: "Interestadual", comVenda: "inter-com-venda", semVenda: "inter-sem-venda" },
+  { id: "prospeccao", label: "Prospecção (sem regra)", comVenda: "prospeccao", semVenda: "prospeccao" },
+];
+
+// Pares linkados: clientes migram automaticamente entre com-venda e sem-venda
+// "prospeccao" não tem par - clientes ficam lá até serem trabalhados manualmente
+export const PIPELINE_PAIRS = [
+  { comVenda: "df-com-venda",    semVenda: "df-sem-venda"    },
+  { comVenda: "inter-com-venda", semVenda: "inter-sem-venda" },
+];
+
+// Dado um pipeline_id, retorna o par e o "outro lado"
+export const getPipelinePair = (pipelineId) => {
+  const pair = PIPELINE_PAIRS.find(p => p.comVenda === pipelineId || p.semVenda === pipelineId);
+  if (!pair) return null;
+  const isComVenda = pair.comVenda === pipelineId;
+  return { pair, isComVenda, otherId: isComVenda ? pair.semVenda : pair.comVenda };
+};
 
 export const ALL_PERMISSIONS = [
   { key: "view_pipeline",  label: "Ver pipeline" },

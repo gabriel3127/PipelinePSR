@@ -111,7 +111,8 @@ function MainApp({ user, profile }) {
   const [notifications, setNotifications]   = useState([]);
   const [allUsers, setAllUsers]             = useState([]);
   const [locationTags, setLocationTags]     = useState([]);
-  const [appSettings, setAppSettings]       = useState({ days_without_purchase_alert: 30 });
+  // Default inclui os dois campos de configuração
+  const [appSettings, setAppSettings]       = useState({ days_without_purchase_alert: 30, days_with_sale_threshold: 60 });
   const [collapsed, setCollapsed]           = useState(false);
   const { toasts, show: showToast, dismiss } = useToast();
 
@@ -131,7 +132,7 @@ function MainApp({ user, profile }) {
   // Carrega configurações globais
   useEffect(() => {
     supabase.from("app_settings").select("*").eq("id","global").single()
-      .then(({ data }) => { if (data) setAppSettings(data); });
+      .then(({ data }) => { if (data) setAppSettings(prev => ({...prev, ...data})); });
   }, []);
 
   const loadData = useCallback(async () => {
