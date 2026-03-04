@@ -94,7 +94,6 @@ export function ImportPage() {
         .eq("pipeline_id", targetPipeline || activePipeline)
         .order("position", { ascending: true })
         .limit(1);
-      if (cols?.length) setFirstColumnId(cols[0].id);
     };
     if (isCSV) reader.readAsText(file, "latin1");
     else reader.readAsBinaryString(file);
@@ -104,14 +103,6 @@ export function ImportPage() {
     if (!mapping.client_name) return showToast("Mapeie o campo Nome", "error");
     if (!targetPipeline) return showToast("Selecione o pipeline", "error");
     setImporting(true);
-
-    // Busca a primeira coluna do pipeline SELECIONADO
-    const { data: cols } = await supabase
-      .from("pipeline_columns")
-      .select("id")
-      .eq("pipeline_id", targetPipeline)
-      .order("position", { ascending: true })
-      .limit(1);
 
     const colId = cols?.[0]?.id || null;
     if (!colId) {
