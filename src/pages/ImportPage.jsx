@@ -80,7 +80,7 @@ export function ImportPage() {
     const file = e.target.files[0]; if (!file) return;
     const isCSV = file.name.endsWith(".csv");
     const reader = new FileReader();
-    reader.onload = async (evt) => {
+    reader.onload = (evt) => {
       const rows = parseRows(evt.target.result, isCSV, evt.target.result);
       if (!rows.length) return showToast("Arquivo vazio", "error");
       const hdrs = rows[0].map(h => String(h || "").trim());
@@ -88,12 +88,6 @@ export function ImportPage() {
       setMapping(autoDetect(hdrs));
       setPreview(rows.slice(1).filter(r => r.some(c => c)).slice(0, 5)
         .map(r => Object.fromEntries(hdrs.map((h, i) => [h, r[i]]))));
-      const { data: cols } = await supabase
-        .from("pipeline_columns")
-        .select("id")
-        .eq("pipeline_id", targetPipeline || activePipeline)
-        .order("position", { ascending: true })
-        .limit(1);
     };
     if (isCSV) reader.readAsText(file, "latin1");
     else reader.readAsBinaryString(file);
@@ -103,6 +97,14 @@ export function ImportPage() {
     if (!mapping.client_name) return showToast("Mapeie o campo Nome", "error");
     if (!targetPipeline) return showToast("Selecione o pipeline", "error");
     setImporting(true);
+
+    // Busca a primeira coluna do pipeline selecionado
+    const { data: cols } = await supabase
+      .from("pipeline_columns")
+      .select("id")
+      .eq("pipeline_id", targetPipeline)
+      .order("position", { ascending: true })
+      .limit(1);
 
     const colId = cols?.[0]?.id || null;
     if (!colId) {
@@ -121,26 +123,25 @@ export function ImportPage() {
       const get  = (obj, key) => mapping[key] ? String(obj[mapping[key]] ?? "").trim() : "";
 
       const imported = rows.slice(1).filter(r => r.some(c => c)).map((row, i) => {
-          const obj = Object.fromEntries(hdrs.map((h, idx) => [h, row[idx]]));
-          const addressParts = [get(obj,"address"), get(obj,"neighborhood"), get(obj,"city"), get(obj,"state")].filter(Boolean);
-          return {
-            pipeline_id:        targetPipeline,
-            column_id:          colId,
-            client_name:        get(obj, "client_name"),
-            company_name:       get(obj, "company_name"),
-            phone:              get(obj, "phone"),
-            email:              get(obj, "email"),
-            value:              parseFloat(get(obj, "value").replace(",", ".")) || 0,
-            last_purchase_date: parseDate(get(obj, "last_purchase_date")),
-            city:               get(obj, "city"),
-            neighborhood:       get(obj, "neighborhood"),
-            address:            get(obj, "address"),
-            state:              get(obj, "state"),
-            notes: addressParts.join(", "),
-            assignees:          [],
-            location_tags:      [],
-            position:           i,
-          };
+        const obj = Object.fromEntries(hdrs.map((h, idx) => [h, row[idx]]));
+        return {
+          pipeline_id:        targetPipeline,
+          column_id:          colId,
+          client_name:        get(obj, "client_name"),
+          company_name:       get(obj, "company_name"),
+          phone:              get(obj, "phone"),
+          email:              get(obj, "email"),
+          value:              parseFloat(get(obj, "value").replace(",", ".")) || 0,
+          last_purchase_date: parseDate(get(obj, "last_purchase_date")),
+          city:               get(obj, "city"),
+          neighborhood:       get(obj, "neighborhood"),
+          address:            get(obj, "address"),
+          state:              get(obj, "state"),
+          notes:              "",
+          assignees:          [],
+          location_tags:      [],
+          position:           i,
+        };
       }).filter(c => c.client_name);
 
       let total = 0;
@@ -233,10 +234,6 @@ export function ImportPage() {
               </table>
             </div>
           )}
-
-          <div style={{background:"rgba(6,182,212,0.08)",border:"1px solid rgba(6,182,212,0.2)",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#22d3ee"}}>
-            💡 Cidade, Bairro, UF e Endereço serão salvos no campo <strong>Observações</strong> do card.
-          </div>
 
           <button onClick={doImport} disabled={importing}
             style={{background:"linear-gradient(135deg,#10b981,#059669)",color:"#fff",border:"none",borderRadius:9,padding:"10px 22px",fontSize:13,fontWeight:600,cursor:importing?"wait":"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:8}}>
