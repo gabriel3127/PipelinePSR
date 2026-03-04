@@ -108,12 +108,22 @@ function CardItem({ card, canDrag, onDragStart, onDragEnd, onClick, allUsers, lo
         </div>
       </div>
       {card.company_name && <div style={{color:"#64748b",fontSize:10,marginBottom:4}}>{card.company_name}</div>}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:(tagNames.length||assigneeNames.length)?5:0}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
         {daysSince!==null && <span style={{color:isOld?"#ef4444":"#64748b",fontSize:10}}>{daysSince}d atrás</span>}
-        {nc && <span style={{color:isContactOverdue?"#f97316":isContactToday?"#eab308":"#64748b",fontSize:10}}>
-          📅 {isContactOverdue?"Atrasado":isContactToday?"Hoje":nc}
-        </span>}
+        {(() => {
+          const sales = card.sales_history||[];
+          const last = sales.length>0 ? sales[sales.length-1] : null;
+          const val = last ? Number(last.value||0) : Number(card.value||0);
+          return val>0 ? <span style={{color:"#10b981",fontSize:10,fontWeight:600}}>R$ {val.toLocaleString("pt-BR",{minimumFractionDigits:2})}</span> : null;
+        })()}
       </div>
+      {nc && (
+        <div style={{marginBottom:(tagNames.length||assigneeNames.length)?4:0}}>
+          <span style={{color:isContactOverdue?"#f97316":isContactToday?"#eab308":"#64748b",fontSize:10}}>
+            📅 {isContactOverdue?"Atrasado":isContactToday?"Hoje":nc}
+          </span>
+        </div>
+      )}
       {tagNames.length>0 && (
         <div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:3}}>
           {tagNames.map(n=><span key={n} style={{background:"rgba(6,182,212,0.12)",color:"#22d3ee",fontSize:9,fontWeight:600,padding:"1px 5px",borderRadius:4}}>🏷️ {n}</span>)}
@@ -190,7 +200,7 @@ function AddCardModal({ columnId, onClose, onAdd }) {
 }
 
 function CardDetailModal({ card, onClose, onUpdate, onDelete }) {
-  const { showToast, can, allUsers, locationTags } = useApp();
+  const { columns, showToast, can, allUsers, locationTags } = useApp();
   const [tab, setTab] = useState("dados");
   const [form, setForm] = useState({
     ...card,
@@ -501,7 +511,19 @@ export function PipelinePage() {
   };
 
   const filtered    = cards.filter(applyFilters);
-  const getColCards = colId => filtered.filter(c=>c.column_id===colId).sort((a,b)=>(a.position||0)-(b.position||0));
+  const contactPriority = (c) => {
+    const today = new Date().toISOString().slice(0,10);
+    if (c.next_contact && c.next_contact < today) return 0;
+    if (c.next_contact && c.next_contact === today) return 1;
+    return 2;
+  };
+  const getColCards = colId => filtered
+    .filter(c=>c.column_id===colId)
+    .sort((a,b) => {
+      const pa = contactPriority(a), pb = contactPriority(b);
+      if (pa !== pb) return pa - pb;
+      return (a.position||0) - (b.position||0);
+    });
   const getColTotal = colId => cards.filter(c=>c.column_id===colId).reduce((s,c)=>s+(Number(c.value)||0),0);
   const totalAll    = cards.reduce((s,c)=>s+(Number(c.value)||0),0);
   const activeCount = Object.values(filters).filter(v=>v!=="").length;

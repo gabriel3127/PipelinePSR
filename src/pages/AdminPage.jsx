@@ -33,11 +33,11 @@ function PipelineGrid({ pipelines, onChange }) {
 }
 
 export function AdminPage() {
-  const { showToast, profile: me, locationTags, setLocationTags, activePipeline } = useApp();
+  const { showToast, profile: me, locationTags, setLocationTags } = useApp();
   const [tab, setTab]                   = useState("users");
   const [users, setUsers]               = useState([]);
   const [editingUser, setEditingUser]   = useState(null);
-  const [newLocTag, setNewLocTag]       = useState("");
+  const [newTag, setNewTag]             = useState("");
   const [form, setForm] = useState({ name:"", email:"", password:"", role:"user", pipelines:[], permissions:{} });
   const upd = key => e => setForm(p=>({...p,[key]:e.target.value}));
   const togglePerm = (perms, key) => ({...perms,[key]:!perms[key]});
@@ -78,17 +78,17 @@ export function AdminPage() {
     setEditingUser(null); showToast("Usuário atualizado!");
   };
 
-  const addLocTag = async () => {
-    if (!newLocTag.trim()) return;
+  const addTag = async () => {
+    if (!newTag.trim()) return;
     const { data, error } = await supabase.from("location_tags")
-      .insert({ name: newLocTag.trim() })
+      .insert({ name: newTag.trim() })
       .select().single();
     if (error) return showToast(error.message, "error");
     setLocationTags(prev => [...prev, data]);
-    setNewLocTag(""); showToast("Tag criada!");
+    setNewTag(""); showToast("Tag criada!");
   };
 
-  const delLocTag = async id => {
+  const delTag = async id => {
     await supabase.from("location_tags").delete().eq("id",id);
     setLocationTags(prev=>prev.filter(t=>t.id!==id));
     showToast("Tag removida","warning");
@@ -98,18 +98,15 @@ export function AdminPage() {
     <button onClick={()=>setTab(id)} style={{background:tab===id?"rgba(99,102,241,0.2)":"transparent",color:tab===id?"#818cf8":"#64748b",border:tab===id?"1px solid rgba(99,102,241,0.4)":"1px solid transparent",borderRadius:7,padding:"6px 16px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
   );
 
-  const currentPipeline = PIPELINES.find(p=>p.id===activePipeline);
-
   return (
     <div style={{maxWidth:820}}>
       <h1 style={{margin:"0 0 18px",fontSize:21,fontWeight:700}}>Administração</h1>
       <div style={{display:"flex",gap:6,marginBottom:22}}>
         {tabBtn("users","👥 Usuários")}
-        {tabBtn("tags","📍 Tags de Localização")}
+        {tabBtn("tags","🏷️ Tags")}
       </div>
 
       {tab==="users" && <>
-        {/* Cadastrar usuário */}
         <div style={{background:"#1e293b",border:"1px solid #334155",borderRadius:13,padding:20,marginBottom:18}}>
           <div style={{fontSize:14,fontWeight:700,color:"#e2e8f0",marginBottom:14}}>Cadastrar novo usuário</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -134,7 +131,6 @@ export function AdminPage() {
           <button onClick={createUser} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:9,padding:"9px 22px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginTop:8}}>+ Cadastrar</button>
         </div>
 
-        {/* Lista de usuários */}
         <div style={{background:"#1e293b",border:"1px solid #334155",borderRadius:13,padding:16}}>
           <div style={{fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:12}}>Usuários ({users.length})</div>
           {users.map(u=>(
@@ -162,21 +158,27 @@ export function AdminPage() {
 
       {tab==="tags" && (
         <div style={{background:"#1e293b",border:"1px solid #334155",borderRadius:13,padding:20}}>
-          <div style={{fontSize:14,fontWeight:700,color:"#e2e8f0",marginBottom:4}}>
-            Tags de localização — {currentPipeline?.label||"Pipeline"}
+          <div style={{fontSize:14,fontWeight:700,color:"#e2e8f0",marginBottom:4}}>🏷️ Tags</div>
+          <div style={{fontSize:12,color:"#64748b",marginBottom:16}}>
+            Tags globais usadas para marcar clientes em qualquer pipeline. Ex: VIP, Inadimplente, Promoção, Indicação...
           </div>
-          <div style={{fontSize:12,color:"#64748b",marginBottom:16}}>Tags são por pipeline. Selecione o pipeline na sidebar para gerenciar as tags dele.</div>
           <div style={{display:"flex",gap:8,marginBottom:18}}>
-            <input value={newLocTag} onChange={e=>setNewLocTag(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addLocTag()} placeholder="Ex: Asa Norte, Taguatinga, Gama..." style={{...fieldStyle,flex:1}} />
-            <button onClick={addLocTag} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:7,padding:"0 18px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>+ Criar</button>
+            <input
+              value={newTag}
+              onChange={e=>setNewTag(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&addTag()}
+              placeholder="Ex: VIP, Inadimplente, Promoção..."
+              style={{...fieldStyle,flex:1}}
+            />
+            <button onClick={addTag} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",borderRadius:7,padding:"0 18px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>+ Criar</button>
           </div>
           {locationTags.length===0
-            ? <div style={{color:"#475569",fontSize:12,textAlign:"center",padding:20}}>Nenhuma tag para este pipeline</div>
+            ? <div style={{color:"#475569",fontSize:12,textAlign:"center",padding:20}}>Nenhuma tag criada ainda</div>
             : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                 {locationTags.map(lt=>(
-                  <div key={lt.id} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(6,182,212,0.1)",border:"1px solid rgba(6,182,212,0.25)",borderRadius:8,padding:"6px 12px"}}>
-                    <span style={{fontSize:12,color:"#22d3ee",fontWeight:600}}>📍 {lt.name}</span>
-                    <button onClick={()=>delLocTag(lt.id)} style={{background:"none",border:"none",color:"#64748b",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
+                  <div key={lt.id} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(99,102,241,0.1)",border:"1px solid rgba(99,102,241,0.25)",borderRadius:8,padding:"6px 12px"}}>
+                    <span style={{fontSize:12,color:"#c7d2fe",fontWeight:600}}>🏷️ {lt.name}</span>
+                    <button onClick={()=>delTag(lt.id)} style={{background:"none",border:"none",color:"#64748b",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
                   </div>
                 ))}
               </div>
@@ -184,7 +186,6 @@ export function AdminPage() {
         </div>
       )}
 
-      {/* Modal editar usuário */}
       {editingUser && (
         <Modal title={`Editar — ${editingUser.name}`} onClose={()=>setEditingUser(null)} width={560}>
           <FormField label="Nome"><input value={editingUser.name} onChange={e=>setEditingUser(p=>({...p,name:e.target.value}))} style={fieldStyle} /></FormField>
