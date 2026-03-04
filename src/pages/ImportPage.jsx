@@ -4,7 +4,7 @@ import { parse, format, differenceInDays, parseISO } from "date-fns";
 import { supabase } from "../supabaseClient";
 import { useApp } from "../context/AppContext";
 import { Spinner } from "../components/shared/Spinner";
-import { PIPELINES, PIPELINE_PAIRS, IMPORT_GROUPS, fieldStyle } from "../constants";
+import { PIPELINES, IMPORT_GROUPS, fieldStyle } from "../constants";
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -88,7 +88,7 @@ function getTargetPipelineId(groupId, lastPurchaseDate, saleDaysThreshold) {
 
 // ── Componente ────────────────────────────────────────────────
 export function ImportPage() {
-  const { setCards, showToast, activePipeline, accessiblePipelines, appSettings } = useApp();
+  const { setCards, showToast, activePipeline, appSettings } = useApp();
   const [headers, setHeaders]         = useState([]);
   const [preview, setPreview]         = useState(null);
   const [mapping, setMapping]         = useState({});
