@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { differenceInDays, parseISO } from "date-fns";
 import { supabase } from "./supabaseClient";
 import { AppProvider } from "./context/AppContext";
 import { Toast } from "./components/shared/Toast";
@@ -22,62 +23,79 @@ function useToast() {
 }
 
 // ── Sidebar ───────────────────────────────────────────────────
-function Sidebar({ profile, user, view, setView, activePipeline, setActivePipeline, accessiblePipelines, unread, onSignOut, isAdmin }) {
+function Sidebar({ profile, user, view, setView, activePipeline, setActivePipeline, accessiblePipelines, unread, onSignOut, isAdmin, collapsed, setCollapsed }) {
   const navBottom = [
     ...(isAdmin ? [{ id:"admin", label:"Admin", icon:"⚙️" }] : []),
     { id:"alerts", label:"Alertas", icon:"🔔", badge: unread },
     { id:"import", label:"Importar Excel", icon:"📊" },
   ];
 
+  const w = collapsed ? 56 : 220;
+
   return (
-    <div style={{width:220,background:"#1e293b",borderRight:"1px solid #334155",display:"flex",flexDirection:"column",height:"100vh",position:"fixed",left:0,top:0,zIndex:100}}>
-      {/* Logo */}
-      <div style={{padding:"20px 16px 16px",borderBottom:"1px solid #334155"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <span style={{fontSize:20}}>📦</span>
-          <div>
-            <div style={{fontWeight:700,fontSize:13,color:"#e2e8f0",letterSpacing:"-0.3px"}}>Pipeline CRM</div>
-            <div style={{fontSize:10,color:"#475569"}}>PSR Embalagens</div>
+    <div style={{width:w,background:"#1e293b",borderRight:"1px solid #334155",display:"flex",flexDirection:"column",height:"100vh",position:"fixed",left:0,top:0,zIndex:100,transition:"width 0.2s",overflow:"hidden"}}>
+      {/* Logo + colapsar */}
+      <div style={{padding:"16px 8px",borderBottom:"1px solid #334155",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+        {!collapsed && (
+          <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
+            <span style={{fontSize:20,flexShrink:0}}>📦</span>
+            <div style={{minWidth:0}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#e2e8f0",letterSpacing:"-0.3px",whiteSpace:"nowrap"}}>Pipeline CRM</div>
+              <div style={{fontSize:10,color:"#475569"}}>PSR Embalagens</div>
+            </div>
           </div>
-        </div>
+        )}
+        {collapsed && <span style={{fontSize:20,margin:"0 auto"}}>📦</span>}
+        <button onClick={()=>setCollapsed(c=>!c)} title={collapsed?"Expandir":"Recolher"}
+          style={{background:"rgba(255,255,255,0.04)",border:"1px solid #334155",borderRadius:6,color:"#475569",cursor:"pointer",fontSize:12,padding:"4px 6px",flexShrink:0,lineHeight:1}}>
+          {collapsed ? "▶" : "◀"}
+        </button>
       </div>
 
       {/* Pipelines */}
-      <div style={{padding:"12px 8px 8px"}}>
-        <div style={{fontSize:10,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 8px",marginBottom:6}}>Pipelines</div>
+      <div style={{padding:"12px 8px 8px",overflowY:"auto",flex:1}}>
+        {!collapsed && <div style={{fontSize:10,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.08em",padding:"0 8px",marginBottom:6}}>Pipelines</div>}
         {accessiblePipelines.map(p => (
           <button key={p.id} onClick={()=>{setActivePipeline(p.id);setView("pipeline");}}
-            style={{width:"100%",background:view==="pipeline"&&activePipeline===p.id?"rgba(99,102,241,0.2)":"transparent",color:view==="pipeline"&&activePipeline===p.id?"#c7d2fe":"#94a3b8",border:"none",borderRadius:8,padding:"8px 10px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:8,marginBottom:2,textAlign:"left",transition:"all 0.15s"}}>
+            title={collapsed?p.label:undefined}
+            style={{width:"100%",background:view==="pipeline"&&activePipeline===p.id?"rgba(99,102,241,0.2)":"transparent",color:view==="pipeline"&&activePipeline===p.id?"#c7d2fe":"#94a3b8",border:"none",borderRadius:8,padding:collapsed?"8px 0":"8px 10px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:collapsed?"center":"flex-start",gap:8,marginBottom:2,textAlign:"left",transition:"all 0.15s"}}>
             <div style={{width:8,height:8,borderRadius:"50%",background:p.color,flexShrink:0}} />
-            <span style={{lineHeight:1.3}}>{p.label}</span>
+            {!collapsed && <span style={{lineHeight:1.3}}>{p.label}</span>}
           </button>
         ))}
       </div>
 
-      <div style={{flex:1}} />
-
       {/* Nav inferior */}
-      <div style={{padding:"8px 8px 12px",borderTop:"1px solid #334155"}}>
+      <div style={{padding:"8px 8px 12px",borderTop:"1px solid #334155",flexShrink:0}}>
         {navBottom.map(item=>(
           <button key={item.id} onClick={()=>setView(item.id)}
-            style={{width:"100%",background:view===item.id?"rgba(99,102,241,0.2)":"transparent",color:view===item.id?"#818cf8":"#64748b",border:"none",borderRadius:8,padding:"8px 10px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:8,marginBottom:2,textAlign:"left"}}>
-            <span>{item.icon}</span>
-            <span>{item.label}</span>
-            {item.badge>0 && <span style={{marginLeft:"auto",background:"#ef4444",color:"#fff",borderRadius:"50%",width:16,height:16,fontSize:10,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{item.badge}</span>}
+            title={collapsed?item.label:undefined}
+            style={{width:"100%",background:view===item.id?"rgba(99,102,241,0.2)":"transparent",color:view===item.id?"#818cf8":"#64748b",border:"none",borderRadius:8,padding:collapsed?"8px 0":"8px 10px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:collapsed?"center":"flex-start",gap:8,marginBottom:2,textAlign:"left",position:"relative"}}>
+            <span style={{fontSize:collapsed?16:14}}>{item.icon}</span>
+            {!collapsed && <span>{item.label}</span>}
+            {item.badge>0 && (
+              <span style={{...(collapsed?{position:"absolute",top:2,right:6}:{marginLeft:"auto"}),background:"#ef4444",color:"#fff",borderRadius:"50%",width:16,height:16,fontSize:10,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>
+                {item.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {/* Usuário */}
-      <div style={{padding:"12px 16px",borderTop:"1px solid #334155",display:"flex",alignItems:"center",gap:8}}>
+      <div style={{padding:"12px 8px",borderTop:"1px solid #334155",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
         <div style={{width:30,height:30,borderRadius:"50%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,color:"#fff",flexShrink:0}}>
           {(profile?.name||user.email)[0].toUpperCase()}
         </div>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:11,fontWeight:600,color:"#e2e8f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{profile?.name||user.email}</div>
-          <div style={{fontSize:10,color:"#475569"}}>{isAdmin?"Admin":"Usuário"}</div>
-        </div>
-        <button onClick={onSignOut} title="Sair" style={{background:"none",border:"none",color:"#475569",cursor:"pointer",fontSize:14,padding:2,flexShrink:0}}>⏻</button>
+        {!collapsed && (
+          <>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:11,fontWeight:600,color:"#e2e8f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{profile?.name||user.email}</div>
+              <div style={{fontSize:10,color:"#475569"}}>{isAdmin?"Admin":"Usuário"}</div>
+            </div>
+            <button onClick={onSignOut} title="Sair" style={{background:"none",border:"none",color:"#475569",cursor:"pointer",fontSize:14,padding:2,flexShrink:0}}>⏻</button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -85,14 +103,16 @@ function Sidebar({ profile, user, view, setView, activePipeline, setActivePipeli
 
 // ── MainApp ───────────────────────────────────────────────────
 function MainApp({ user, profile }) {
-  const [view, setView]                   = useState("pipeline");
+  const [view, setView]                     = useState("pipeline");
   const [activePipeline, setActivePipeline] = useState(null);
-  const [columns, setColumns]             = useState([]);
-  const [cards, setCards]                 = useState([]);
-  const [notifRules, setNotifRules]       = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [allUsers, setAllUsers]           = useState([]);
-  const [locationTags, setLocationTags]   = useState([]);
+  const [columns, setColumns]               = useState([]);
+  const [cards, setCards]                   = useState([]);
+  const [notifRules, setNotifRules]         = useState([]);
+  const [notifications, setNotifications]   = useState([]);
+  const [allUsers, setAllUsers]             = useState([]);
+  const [locationTags, setLocationTags]     = useState([]);
+  const [appSettings, setAppSettings]       = useState({ days_without_purchase_alert: 30 });
+  const [collapsed, setCollapsed]           = useState(false);
   const { toasts, show: showToast, dismiss } = useToast();
 
   const isAdmin = profile?.role === "admin";
@@ -108,6 +128,12 @@ function MainApp({ user, profile }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
+  // Carrega configurações globais
+  useEffect(() => {
+    supabase.from("app_settings").select("*").eq("id","global").single()
+      .then(({ data }) => { if (data) setAppSettings(data); });
+  }, []);
+
   const loadData = useCallback(async () => {
     if (!activePipeline) return;
     const [colRes, cardRes, ruleRes, userRes, locRes] = await Promise.all([
@@ -115,7 +141,7 @@ function MainApp({ user, profile }) {
       supabase.from("pipeline_cards").select("*").eq("pipeline_id", activePipeline).order("position",{ascending:true}),
       supabase.from("notification_rules").select("*").eq("pipeline_id", activePipeline),
       supabase.from("profiles").select("id, name, role, pipelines, permissions"),
-      supabase.from("location_tags").select("*").eq("pipeline_id", activePipeline).order("name"),
+      supabase.from("location_tags").select("*").order("name"),
     ]);
     if (colRes.data)  setColumns(colRes.data);
     if (cardRes.data) setCards(cardRes.data);
@@ -126,8 +152,32 @@ function MainApp({ user, profile }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Auto-move: verifica cards que passaram o max_days da coluna
+  useEffect(() => {
+    if (!cards.length || !columns.length) return;
+    columns.forEach(col => {
+      if (!col.max_days || !col.auto_move_to_column_id) return;
+      const stuckCards = cards.filter(c => {
+        if (c.column_id !== col.id || !c.updated_at) return false;
+        const days = differenceInDays(new Date(), parseISO(c.updated_at));
+        return days >= col.max_days;
+      });
+      stuckCards.forEach(async card => {
+        const now = new Date().toISOString();
+        await supabase.from("pipeline_cards")
+          .update({ column_id: col.auto_move_to_column_id, updated_at: now })
+          .eq("id", card.id);
+        setCards(prev => prev.map(c => c.id===card.id
+          ? {...c, column_id: col.auto_move_to_column_id, updated_at: now}
+          : c
+        ));
+      });
+    });
+  }, [cards, columns]);
+
   const unread = notifications.filter(n=>!n.is_read).length;
   const onSignOut = async () => { await supabase.auth.signOut(); };
+  const sidebarWidth = collapsed ? 56 : 220;
 
   if (accessiblePipelines.length === 0) return (
     <div style={{minHeight:"100vh",background:"#0f172a",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -146,6 +196,7 @@ function MainApp({ user, profile }) {
     columns, setColumns, cards, setCards,
     notifRules, setNotifRules, notifications, setNotifications,
     allUsers, locationTags, setLocationTags,
+    appSettings, setAppSettings,
     loadData, showToast,
   };
 
@@ -159,8 +210,9 @@ function MainApp({ user, profile }) {
           activePipeline={activePipeline} setActivePipeline={setActivePipeline}
           accessiblePipelines={accessiblePipelines}
           unread={unread} onSignOut={onSignOut} isAdmin={isAdmin}
+          collapsed={collapsed} setCollapsed={setCollapsed}
         />
-        <div style={{marginLeft:220,flex:1,padding:24,minHeight:"100vh"}}>
+        <div style={{marginLeft:sidebarWidth,flex:1,padding:24,minHeight:"100vh",transition:"margin-left 0.2s"}}>
           {view==="pipeline" && can("view_pipeline") && <PipelinePage />}
           {view==="import"   && can("import_excel")  && <ImportPage />}
           {view==="alerts"   && can("view_alerts")   && <AlertsPage />}

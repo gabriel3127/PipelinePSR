@@ -81,10 +81,11 @@ export function AdminPage() {
   const addLocTag = async () => {
     if (!newLocTag.trim()) return;
     const { data, error } = await supabase.from("location_tags")
-      .insert({ name:newLocTag.trim(), pipeline_id:activePipeline })
+      .insert({ name: newLocTag.trim() })
       .select().single();
-    if (error) return showToast(error.message,"error");
-    setLocationTags(prev=>[...prev,data]); setNewLocTag(""); showToast("Tag criada!");
+    if (error) return showToast(error.message, "error");
+    setLocationTags(prev => [...prev, data]);
+    setNewLocTag(""); showToast("Tag criada!");
   };
 
   const delLocTag = async id => {
