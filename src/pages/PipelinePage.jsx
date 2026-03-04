@@ -190,7 +190,7 @@ function AddCardModal({ columnId, onClose, onAdd }) {
 }
 
 function CardDetailModal({ card, onClose, onUpdate, onDelete }) {
-  const { columns, showToast, can, allUsers, locationTags } = useApp();
+  const { showToast, can, allUsers, locationTags } = useApp();
   const [tab, setTab] = useState("dados");
   const [form, setForm] = useState({
     ...card,

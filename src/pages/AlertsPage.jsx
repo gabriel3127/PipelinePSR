@@ -5,7 +5,7 @@ import { useApp } from "../context/AppContext";
 import { fieldStyle } from "../constants";
 
 export function AlertsPage() {
-  const { cards, columns, notifRules, setNotifRules, showToast, can, appSettings, setAppSettings, activePipeline } = useApp();
+  const { cards, columns, notifRules, setNotifRules, showToast, can, appSettings, setAppSettings } = useApp();
   const [notifications, setNotifications] = useState([]);
   const [savingSettings, setSavingSettings] = useState(false);
   const [localDays, setLocalDays] = useState(appSettings?.days_without_purchase_alert ?? 30);

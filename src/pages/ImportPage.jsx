@@ -15,11 +15,10 @@ export function ImportPage() {
   const [importing, setImporting]   = useState(false);
   const [separator, setSeparator]   = useState(";");
   const fileRef = useRef();
-  const [firstColumnId, setFirstColumnId] = useState(null);
 
   useEffect(() => {
     if (activePipeline && !targetPipeline) setTargetPipeline(activePipeline);
-  }, [activePipeline]);
+  }, [activePipeline, targetPipeline]);
 
   const FIELDS = [
     { key:"client_name",        label:"Nome do cliente *" },
@@ -131,8 +130,8 @@ export function ImportPage() {
       const get  = (obj, key) => mapping[key] ? String(obj[mapping[key]] ?? "").trim() : "";
 
       const imported = rows.slice(1).filter(r => r.some(c => c)).map((row, i) => {
-        const obj = Object.fromEntries(hdrs.map((h, idx) => [h, row[idx]]));
-        const addressParts = [get(obj,"address"), get(obj,"neighborhood"), get(obj,"city"), get(obj,"state")].filter(Boolean);
+          const obj = Object.fromEntries(hdrs.map((h, idx) => [h, row[idx]]));
+          const addressParts = [get(obj,"address"), get(obj,"neighborhood"), get(obj,"city"), get(obj,"state")].filter(Boolean);
           return {
             pipeline_id:        targetPipeline,
             column_id:          colId,
@@ -146,7 +145,7 @@ export function ImportPage() {
             neighborhood:       get(obj, "neighborhood"),
             address:            get(obj, "address"),
             state:              get(obj, "state"),
-            notes:              "",   // ← limpo para novas observações
+            notes: addressParts.join(", "),
             assignees:          [],
             location_tags:      [],
             position:           i,
